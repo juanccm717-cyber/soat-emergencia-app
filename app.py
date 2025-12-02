@@ -5,9 +5,6 @@ import os
 if "user" not in st.session_state:
     st.session_state.user = None
 
-# --- Mostrar mensaje de prueba ---
-st.write("✅ App cargada correctamente")
-
 # --- Intentar conectar a la base de datos ---
 try:
     import psycopg2
@@ -20,10 +17,34 @@ try:
         sslmode="require"
     )
     st.success("✅ Conexión a la base de datos exitosa!")
-    
-    # Aquí puedes añadir el login real
-    st.info("Ahora puedes implementar el formulario de login.")
-    
 except Exception as e:
     st.error(f"❌ Error de conexión: {str(e)}")
-    st.code(str(e), language="python")
+    st.stop()  # Detiene la ejecución si hay error
+
+# --- Lógica de login ---
+if st.session_state.user is None:
+    st.title("🔐 Iniciar Sesión")
+    with st.form("login_form"):
+        email = st.text_input("Correo electrónico")
+        password = st.text_input("Contraseña", type="password")
+        submit = st.form_submit_button("Iniciar sesión")
+    
+    if submit:
+        # Simulación de login (en producción, consulta la tabla 'usuarios')
+        if email == "admin@hospital.com" and password == "test125879":
+            st.session_state.user = {"email": email, "rol": "admin"}
+            st.rerun()
+        elif email == "soat@hospital.com" and password == "test1234":
+            st.session_state.user = {"email": email, "rol": "soat"}
+            st.rerun()
+        else:
+            st.error("Correo o contraseña incorrectos")
+else:
+    # Menú principal
+    st.sidebar.title(f"Bienvenido, {st.session_state.user['email']}")
+    if st.sidebar.button("Cerrar sesión"):
+        st.session_state.user = None
+        st.rerun()
+    
+    st.title("🏥 SOAT Emergencia")
+    st.write("Menú principal cargado.")
