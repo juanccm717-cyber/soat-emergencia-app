@@ -91,7 +91,7 @@ def validar_soat(placa):
         st.error(f"❌ Error al validar SOAT: {str(e)}")
         return None
 
-# --- Guardar SOAT manualmente (para área de Seguros) ---
+# --- Guardar SOAT manualmente (para Seguros y Admisión) ---
 def registrar_soat_manual(placa, dni_paciente, fecha_vigencia, compania, numero_poliza):
     try:
         conn = get_db_connection()
@@ -126,72 +126,101 @@ roles_nombres = {
 
 st.set_page_config(page_title="SOAT Emergencia", layout="centered")
 
-# --- ETAPA 1: LOGIN ---
+# --- ETAPA 1: LOGIN POR ÁREA ---
 if st.session_state.user is None:
     st.title("🔐 Inicio de Sesión - SOAT Emergencia")
-    rol_seleccionado = st.selectbox("Selecciona tu área", list(roles_nombres.keys()), format_func=lambda x: roles_nombres[x])
+    
+    rol_seleccionado = st.selectbox(
+        "Selecciona tu área de trabajo",
+        options=list(roles_nombres.keys()),
+        format_func=lambda x: roles_nombres[x]
+    )
+    
     email_real = f"{rol_seleccionado}@hospital.com"
     password = st.text_input("Contraseña", type="password")
+    
     if st.button("Iniciar Sesión"):
-        user = autenticar_usuario(email_real, password)
-        if user:
-            st.session_state.user = user
-            st.rerun()
+        if not password:
+            st.warning("⚠️ Por favor, ingresa una contraseña.")
         else:
-            st.error("❌ Credenciales incorrectas")
+            user = autenticar_usuario(email_real, password)
+            if user:
+                st.session_state.user = user
+                st.rerun()
+            else:
+                st.error("❌ Usuario o contraseña incorrectos.")
 
-# --- ETAPA 2: INGRESANTE ---
+# --- ETAPA 2: IDENTIFICACIÓN DEL INGRESANTE ---
 elif st.session_state.ingresante is None:
     st.title(f"👤 Bienvenido, {roles_nombres[st.session_state.user['rol']]}.")
+    st.subheader("Por favor, identifícate como personal autorizado")
+    
     dni = st.text_input("DNI del ingresante", max_chars=15).strip()
+    
     if dni:
-        data = buscar_ingresante(dni)
-        if data:
-            st.session_state.ingresante = {"dni": data[0], "nombre": data[1], "cargo": data[2]}
+        datos = buscar_ingresante(dni)
+        if datos:
+            st.session_state.ingresante = {
+                "dni": datos[0],
+                "nombre": datos[1],
+                "cargo": datos[2]
+            }
+            st.success(f"✅ Bienvenido, **{datos[1]}** ({datos[2]})")
             st.rerun()
         else:
-            nombre = st.text_input("Nombres y apellidos")
-            cargo = st.text_input("Cargo")
-            if st.button("Registrar"):
-                if nombre and cargo and registrar_ingresante(dni, nombre, cargo):
-                    st.session_state.ingresante = {"dni": dni, "nombre": nombre, "cargo": cargo}
-                    st.rerun()
+            st.warning("⚠️ Ingresante no registrado. Complete sus datos a continuación.")
+            nombre = st.text_input("Nombres y apellidos completos")
+            cargo = st.text_input("Cargo o rol en el hospital")
+            if st.button("Registrar como ingresante"):
+                if nombre.strip() and cargo.strip():
+                    if registrar_ingresante(dni, nombre, cargo):
+                        st.session_state.ingresante = {
+                            "dni": dni,
+                            "nombre": nombre,
+                            "cargo": cargo
+                        }
+                        st.success("✅ Registro exitoso. Bienvenido.")
+                        st.rerun()
+                else:
+                    st.error("❌ Por favor, complete todos los campos.")
 
 # --- ETAPA 3: MENÚ PRINCIPAL ---
 else:
     st.sidebar.title(f"🧍 {st.session_state.ingresante['nombre']}")
+    st.sidebar.write(f"**Cargo:** {st.session_state.ingresante['cargo']}")
     st.sidebar.write(f"**Área:** {roles_nombres[st.session_state.user['rol']]}")
+    
     if st.sidebar.button("Cerrar Sesión"):
         st.session_state.user = None
         st.session_state.ingresante = None
         st.rerun()
     
-    st.title("🏥 SOAT Emergencia")
-    opcion = st.radio("Seleccione una función:", ["Validar SOAT", "Registrar SOAT (Seguros)", "Hoja de Ruta"])
+    st.title("🏥 SOAT Emergencia - Menú Principal")
+    opcion = st.radio("Selecciona una función:", ["Validar SOAT", "Registrar SOAT (Seguros/Admisión)", "Hoja de Ruta"])
     
     # --- Validar SOAT ---
     if opcion == "Validar SOAT":
         st.header("🔍 Validación de SOAT")
-        placa = st.text_input("Placa del vehículo", max_chars=10).strip().upper()
-        if st.button("Consultar"):
+        placa = st.text_input("Ingrese la placa del vehículo", max_chars=10).strip().upper()
+        if st.button("Consultar SOAT"):
             if not placa:
-                st.warning("⚠️ Ingrese una placa.")
+                st.warning("⚠️ Por favor, ingrese una placa.")
             else:
-                soat = validar_soat(placa)
-                if soat:
-                    st.success("✅ SOAT vigente")
-                    st.write(f"**Placa:** {soat[0]}")
-                    st.write(f"**DNI del asegurado:** {soat[1]}")
-                    st.write(f"**Compañía:** {soat[3]}")
-                    st.write(f"**Póliza:** {soat[4]}")
-                    st.write(f"**Vigente hasta:** {soat[2]}")
+                resultado = validar_soat(placa)
+                if resultado:
+                    dni_paciente, fecha_vigencia, compania, numero_poliza = resultado
+                    st.success(f"✅ SOAT activo")
+                    st.write(f"**DNI del asegurado:** {dni_paciente}")
+                    st.write(f"**Compañía:** {compania}")
+                    st.write(f"**Póliza:** {numero_poliza}")
+                    st.write(f"**Vigente hasta:** {fecha_vigencia}")
                 else:
                     st.error("❌ SOAT no activo, vencido o no registrado.")
     
-    # --- Registrar SOAT (solo para Seguros) ---
-    elif opcion == "Registrar SOAT (Seguros)":
-        if st.session_state.user["rol"] != "seguros":
-            st.error("❌ Solo el área de Seguros puede registrar SOAT.")
+    # --- Registrar SOAT (solo para Seguros y Admisión) ---
+    elif opcion == "Registrar SOAT (Seguros/Admisión)":
+        if st.session_state.user["rol"] not in ["seguros", "admission"]:
+            st.error("❌ Solo las áreas de Seguros y Admisión pueden registrar SOAT.")
         else:
             st.header("📄 Registrar SOAT Manualmente")
             placa = st.text_input("Placa", max_chars=10).strip().upper()
@@ -209,7 +238,7 @@ else:
                 else:
                     st.error("❌ Complete todos los campos.")
     
-    # --- Hoja de Ruta (placeholder) ---
+    # --- Hoja de Ruta ---
     elif opcion == "Hoja de Ruta":
         st.header("📋 Hoja de Ruta")
         st.info("Funcionalidad en desarrollo.")
