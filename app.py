@@ -179,8 +179,7 @@ elif st.session_state.ingresante is None:
     dni = st.text_input("DNI del ingresante", max_chars=15).strip()
     if dni:
         data = buscar_ingresante(dni)
-        if 
-            st.session_state.ingresante = {"dni": data[0], "nombre": data[1], "cargo": data[2]}
+        if st.session_state.user["rol"] not in ["admission", "seguros"]:
             st.rerun()
         else:
             nombre = st.text_input("Nombres y apellidos")
