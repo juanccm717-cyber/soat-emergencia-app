@@ -271,7 +271,7 @@ elif st.session_state.ingresante is None:
     dni = st.text_input("DNI del ingresante", max_chars=15).strip()
     if dni:
         data = buscar_ingresante(dni)
-        if data:
+        if 
             st.session_state.ingresante = {"dni": data[0], "nombre": data[1], "cargo": data[2]}
             st.rerun()
         else:
@@ -303,7 +303,7 @@ else:
             dni = st.text_input("DNI del paciente", max_chars=12).strip()
             if dni:
                 data = buscar_paciente(dni)
-                if data:
+                if 
                     st.success(f"✅ Paciente ya registrado: **{data[1]}**")
                     if st.button("Añadir a lista de espera"):
                         if crear_lista_espera(dni):
