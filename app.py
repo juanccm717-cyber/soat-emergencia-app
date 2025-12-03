@@ -294,7 +294,7 @@ else:
     st.title("🏥 SOAT Emergencia")
     opcion = st.radio("Seleccione una función:", ["Registrar Paciente (Triaje)", "Checklist de Validación", "Subir PDF SOAT", "Hoja de Ruta"])
     
-    # --- Triaje: Registrar paciente y crear lista de espera ---
+    # --- Triaje: Registrar paciente y lista de espera ---
     if opcion == "Registrar Paciente (Triaje)":
         if st.session_state.user["rol"] != "triage":
             st.error("❌ Solo Triaje puede registrar pacientes.")
@@ -305,7 +305,7 @@ else:
                 data = buscar_paciente(dni)
                 if data:
                     st.success(f"✅ Paciente ya registrado: **{data[1]}**")
-                    if st.button("Crear lista de espera"):
+                    if st.button("Añadir a lista de espera"):
                         if crear_lista_espera(dni):
                             st.success("✅ Paciente añadido a la lista de espera.")
                 else:
@@ -317,7 +317,7 @@ else:
                         else:
                             st.error("❌ Ingrese nombres y apellidos.")
 
-    # --- Checklist de validación (accesible a todos los roles después de Triaje) ---
+    # --- Checklist de validación ---
     elif opcion == "Checklist de Validación":
         st.header("✅ Checklist de Validación Rápida")
         dni = st.text_input("DNI del paciente (registrado en Triaje)", max_chars=12).strip()
@@ -330,8 +330,6 @@ else:
                 else:
                     st.write(f"**Paciente:** {paciente[1]}")
                     st.subheader("Estado actual del checklist")
-                    
-                    # Mostrar y permitir edición (solo si el rol corresponde)
                     new_checklist = checklist.copy()
                     new_checklist["placa_verificada"] = st.checkbox("Placa verificada", value=checklist["placa_verificada"])
                     new_checklist["soat_adjuntado"] = st.checkbox("SOAT adjuntado", value=checklist["soat_adjuntado"])
@@ -370,7 +368,7 @@ else:
                 else:
                     st.error("❌ No se extrajeron todos los datos. Asegúrese de que el PDF sea válido.")
 
-    # --- Hoja de Ruta (se generará a partir del checklist y SOAT) ---
+    # --- Hoja de Ruta ---
     elif opcion == "Hoja de Ruta":
         st.header("📋 Hoja de Ruta")
         dni = st.text_input("DNI del paciente", max_chars=12).strip()
