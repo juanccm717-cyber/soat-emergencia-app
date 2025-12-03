@@ -25,7 +25,7 @@ def get_db_connection():
         st.stop()
 
 # --- Autenticación segura desde la base de datos ---
-def autenticar_usuario(email, password_plana):
+def autenticar_usuario(email, password):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -35,14 +35,14 @@ def autenticar_usuario(email, password_plana):
         conn.close()
         if row:
             stored_hash = row[1]
-            if bcrypt.checkpw(password_plana.encode('utf-8'), stored_hash.encode('utf-8')):
+            if bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
                 return {"email": row[0], "rol": row[2]}
         return None
     except Exception as e:
         st.error(f"❌ Error en autenticación: {str(e)}")
         return None
 
-# --- Registrar ingresante en la base de datos (una sola vez por DNI) ---
+# --- Registrar ingresante en la base de datos ---
 def registrar_ingresante(dni, nombre, cargo):
     try:
         conn = get_db_connection()
@@ -74,7 +74,25 @@ def buscar_ingresante(dni):
         st.error(f"❌ Error al buscar ingresante: {str(e)}")
         return None
 
-# --- Mapeo de roles a nombres amigables ---
+# --- Validar SOAT por placa ---
+def validar_soat(placa):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT dni_paciente, fecha_vigencia, compania
+            FROM soat_activos
+            WHERE placa = %s AND estado = true AND fecha_vigencia >= CURRENT_DATE
+        """, (placa.strip(),))
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        return row  # None si no está activo
+    except Exception as e:
+        st.error(f"❌ Error al validar SOAT: {str(e)}")
+        return None
+
+# --- Nombres amigables de áreas ---
 roles_nombres = {
     "admission": "Admisión",
     "seguros": "Seguros (Sub-Oficina)",
@@ -111,7 +129,7 @@ if st.session_state.user is None:
             else:
                 st.error("❌ Usuario o contraseña incorrectos.")
 
-# --- ETAPA 2: IDENTIFICACIÓN DEL INGRESANTE (QUIEN REGISTRA) ---
+# --- ETAPA 2: IDENTIFICACIÓN DEL INGRESANTE ---
 elif st.session_state.ingresante is None:
     st.title(f"👤 Bienvenido, {roles_nombres[st.session_state.user['rol']]}.")
     st.subheader("Por favor, identifícate como personal autorizado")
@@ -145,9 +163,8 @@ elif st.session_state.ingresante is None:
                 else:
                     st.error("❌ Por favor, complete todos los campos.")
 
-# --- ETAPA 3: MENÚ PRINCIPAL (YA AUTENTICADO) ---
+# --- ETAPA 3: MENÚ PRINCIPAL ---
 else:
-    # Barra lateral con info del ingresante
     st.sidebar.title(f"🧍 {st.session_state.ingresante['nombre']}")
     st.sidebar.write(f"**Cargo:** {st.session_state.ingresante['cargo']}")
     st.sidebar.write(f"**Área:** {roles_nombres[st.session_state.user['rol']]}")
@@ -157,13 +174,30 @@ else:
         st.session_state.ingresante = None
         st.rerun()
     
-    # Contenido principal
     st.title("🏥 SOAT Emergencia - Menú Principal")
-    st.write("✅ Acceso validado con seguridad.")
-    st.write("### Funcionalidades próximas:")
-    st.markdown("""
-    - 🔍 Validación de SOAT por placa vehicular
-    - 📋 Registro de pacientes con cobertura SOAT
-    - 🗺️ Generación automática de hoja de ruta
-    - 📊 Consulta de historial de atención
-    """)
+    opcion = st.radio("Selecciona una función:", ["Validar SOAT", "Hoja de Ruta", "Reportes"])
+    
+    if opcion == "Validar SOAT":
+        st.header("🔍 Validación de SOAT")
+        placa = st.text_input("Ingrese la placa del vehículo", max_chars=10).strip().upper()
+        if st.button("Consultar SOAT"):
+            if not placa:
+                st.warning("⚠️ Por favor, ingrese una placa.")
+            else:
+                resultado = validar_soat(placa)
+                if resultado:
+                    dni_paciente, fecha_vigencia, compania = resultado
+                    st.success(f"✅ SOAT activo")
+                    st.write(f"**DNI del asegurado:** {dni_paciente}")
+                    st.write(f"**Compañía:** {compania}")
+                    st.write(f"**Vigente hasta:** {fecha_vigencia}")
+                else:
+                    st.error("❌ SOAT no activo, vencido o no registrado.")
+
+    elif opcion == "Hoja de Ruta":
+        st.header("📋 Hoja de Ruta")
+        st.info("Funcionalidad en desarrollo. Próximamente disponible.")
+    
+    elif opcion == "Reportes":
+        st.header("📊 Reportes")
+        st.info("Funcionalidad en desarrollo. Próximamente disponible.")
