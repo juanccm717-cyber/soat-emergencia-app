@@ -5,6 +5,7 @@ import bcrypt
 from datetime import datetime
 from PyPDF2 import PdfReader
 import re
+import json
 
 # --- Inicialización de sesión ---
 if "user" not in st.session_state:
@@ -75,6 +76,97 @@ def buscar_ingresante(dni):
         st.error(f"❌ Error al buscar ingresante: {str(e)}")
         return None
 
+# --- Registrar paciente en Triaje ---
+def registrar_paciente_triage(dni, nombre):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO pacientes (dni, nombres_apellidos)
+            VALUES (%s, %s)
+            ON CONFLICT (dni) DO NOTHING
+        """, (dni.strip(), nombre.strip()))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return True
+    except Exception as e:
+        st.error(f"❌ Error al registrar paciente: {str(e)}")
+        return False
+
+# --- Buscar paciente por DNI ---
+def buscar_paciente(dni):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT dni, nombres_apellidos FROM pacientes WHERE dni = %s", (dni.strip(),))
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        return row
+    except Exception as e:
+        st.error(f"❌ Error al buscar paciente: {str(e)}")
+        return None
+
+# --- Crear entrada en lista de espera ---
+def crear_lista_espera(dni_paciente):
+    checklist_inicial = {
+        "accidente_confirmado": True,
+        "placa_verificada": False,
+        "soat_adjuntado": False,
+        "dni_confirmado": True
+    }
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO lista_espera (dni_paciente, checklist)
+            VALUES (%s, %s)
+            ON CONFLICT (dni_paciente) DO UPDATE SET
+                estado = 'pendiente',
+                checklist = EXCLUDED.checklist,
+                updated_at = NOW()
+        """, (dni_paciente.strip(), json.dumps(checklist_inicial)))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return True
+    except Exception as e:
+        st.error(f"❌ Error al crear lista de espera: {str(e)}")
+        return False
+
+# --- Obtener checklist actual ---
+def obtener_checklist(dni_paciente):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT checklist FROM lista_espera WHERE dni_paciente = %s", (dni_paciente.strip(),))
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        return json.loads(row[0]) if row else None
+    except Exception as e:
+        st.error(f"❌ Error al obtener checklist: {str(e)}")
+        return None
+
+# --- Actualizar checklist ---
+def actualizar_checklist(dni_paciente, checklist):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE lista_espera
+            SET checklist = %s, updated_at = NOW()
+            WHERE dni_paciente = %s
+        """, (json.dumps(checklist), dni_paciente.strip()))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return True
+    except Exception as e:
+        st.error(f"❌ Error al actualizar checklist: {str(e)}")
+        return False
+
 # --- Extraer datos de PDF de SOAT ---
 def extraer_datos_soat(pdf_file):
     reader = PdfReader(pdf_file)
@@ -130,21 +222,21 @@ def guardar_soat_desde_pdf(placa, dni_asegurado, fecha_vigencia, compania, numer
         st.error(f"❌ Error al guardar SOAT: {str(e)}")
         return False
 
-# --- Registrar paciente con nota de ingreso (solo Admisión) ---
-def registrar_paciente_con_nota(dni_paciente, nombres, placa_soat, nota_ingreso):
+# --- Vincular paciente con SOAT (solo Admisión) ---
+def vincular_paciente_soat(dni_paciente, placa_soat, nota_ingreso):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO pacientes_soat (dni_paciente, nombres_apellidos, placa_soat, nota_ingreso)
-            VALUES (%s, %s, %s, %s)
-        """, (dni_paciente.strip(), nombres.strip(), placa_soat.strip(), nota_ingreso.strip()))
+            INSERT INTO pacientes_soat (dni_paciente, placa_soat, nota_ingreso)
+            VALUES (%s, %s, %s)
+        """, (dni_paciente.strip(), placa_soat.strip(), nota_ingreso.strip()))
         conn.commit()
         cur.close()
         conn.close()
         return True
     except Exception as e:
-        st.error(f"❌ Error al registrar paciente: {str(e)}")
+        st.error(f"❌ Error al vincular paciente con SOAT: {str(e)}")
         return False
 
 # --- Roles ---
@@ -179,7 +271,8 @@ elif st.session_state.ingresante is None:
     dni = st.text_input("DNI del ingresante", max_chars=15).strip()
     if dni:
         data = buscar_ingresante(dni)
-        if st.session_state.user["rol"] not in ["admission", "seguros"]:
+        if data:
+            st.session_state.ingresante = {"dni": data[0], "nombre": data[1], "cargo": data[2]}
             st.rerun()
         else:
             nombre = st.text_input("Nombres y apellidos")
@@ -199,27 +292,55 @@ else:
         st.rerun()
     
     st.title("🏥 SOAT Emergencia")
-    opcion = st.radio("Seleccione una función:", ["Confirmar Accidente", "Validar SOAT", "Subir PDF SOAT", "Registrar Paciente", "Hoja de Ruta"])
+    opcion = st.radio("Seleccione una función:", ["Registrar Paciente (Triaje)", "Checklist de Validación", "Subir PDF SOAT", "Hoja de Ruta"])
     
-    # --- Triaje: Confirmar accidente ---
-    if opcion == "Confirmar Accidente":
+    # --- Triaje: Registrar paciente y crear lista de espera ---
+    if opcion == "Registrar Paciente (Triaje)":
         if st.session_state.user["rol"] != "triage":
-            st.error("❌ Solo Triaje de Emergencia puede confirmar accidentes.")
+            st.error("❌ Solo Triaje puede registrar pacientes.")
         else:
-            st.header("⚠️ Confirmación de Accidente de Tránsito")
-            st.write("El paciente ingresa por accidente de tránsito.")
-            st.info("Una vez confirmado, Admisión o Seguros podrán proceder con la validación del SOAT.")
+            st.header("👤 Registro de Paciente en Triaje")
+            dni = st.text_input("DNI del paciente", max_chars=12).strip()
+            if dni:
+                data = buscar_paciente(dni)
+                if data:
+                    st.success(f"✅ Paciente ya registrado: **{data[1]}**")
+                    if st.button("Crear lista de espera"):
+                        if crear_lista_espera(dni):
+                            st.success("✅ Paciente añadido a la lista de espera.")
+                else:
+                    nombre = st.text_input("Nombres y apellidos completos")
+                    if st.button("Registrar y añadir a lista de espera"):
+                        if nombre:
+                            if registrar_paciente_triage(dni, nombre) and crear_lista_espera(dni):
+                                st.success(f"✅ Paciente registrado y añadido a lista de espera.")
+                        else:
+                            st.error("❌ Ingrese nombres y apellidos.")
 
-    # --- Validación SOAT: enlaces oficiales ---
-    elif opcion == "Validar SOAT":
-        st.header("🔍 Validar SOAT")
-        st.write("### Consulte en los sitios oficiales:")
-        st.markdown("""
-        - [Interseguro - Consulta SOAT](https://www.interseguro.pe/soat/consulta-soat)
-        - [Pacífico - Consulta SOAT](https://soat.pacifico.com.pe/experiencia/consulta-soat)
-        - [Apeseg - Consulta SOAT](https://www.apeseg.org.pe/consultas-soat/)
-        """)
-        st.info("Después de validar, Admisión o Seguros pueden subir el PDF del certificado.")
+    # --- Checklist de validación (accesible a todos los roles después de Triaje) ---
+    elif opcion == "Checklist de Validación":
+        st.header("✅ Checklist de Validación Rápida")
+        dni = st.text_input("DNI del paciente (registrado en Triaje)", max_chars=12).strip()
+        if dni:
+            paciente = buscar_paciente(dni)
+            if paciente:
+                checklist = obtener_checklist(dni)
+                if checklist is None:
+                    st.warning("⚠️ El paciente aún no está en lista de espera. Regístrelo primero en Triaje.")
+                else:
+                    st.write(f"**Paciente:** {paciente[1]}")
+                    st.subheader("Estado actual del checklist")
+                    
+                    # Mostrar y permitir edición (solo si el rol corresponde)
+                    new_checklist = checklist.copy()
+                    new_checklist["placa_verificada"] = st.checkbox("Placa verificada", value=checklist["placa_verificada"])
+                    new_checklist["soat_adjuntado"] = st.checkbox("SOAT adjuntado", value=checklist["soat_adjuntado"])
+                    
+                    if st.button("Guardar Checklist"):
+                        if actualizar_checklist(dni, new_checklist):
+                            st.success("✅ Checklist actualizado.")
+            else:
+                st.error("❌ Paciente no registrado.")
 
     # --- Subir PDF SOAT (Admisión y Seguros) ---
     elif opcion == "Subir PDF SOAT":
@@ -227,11 +348,11 @@ else:
             st.error("❌ Solo Admisión y Seguros pueden subir el certificado SOAT.")
         else:
             st.header("📄 Subir Certificado SOAT (PDF)")
-            uploaded_file = st.file_uploader("Adjunte el PDF descargado de la web oficial", type=["pdf"])
+            uploaded_file = st.file_uploader("Adjunte el PDF descargado", type=["pdf"])
             if uploaded_file:
                 datos = extraer_datos_soat(uploaded_file)
                 if all([datos["placa"], datos["fecha_vigencia"], datos["compania"], datos["numero_poliza"]]):
-                    st.success("✅ Datos extraídos del PDF:")
+                    st.success("✅ Datos extraídos:")
                     st.write(f"**Placa:** {datos['placa']}")
                     st.write(f"**Titular (DNI):** {datos['dni_asegurado']}")
                     st.write(f"**Compañía:** {datos['compania']}")
@@ -247,39 +368,27 @@ else:
                         ):
                             st.success(f"✅ SOAT registrado para placa {datos['placa']}")
                 else:
-                    st.error("❌ No se extrajeron todos los datos. Asegúrese de que el PDF sea un certificado SOAT válido.")
+                    st.error("❌ No se extrajeron todos los datos. Asegúrese de que el PDF sea válido.")
 
-    # --- Registrar Paciente con Nota de Ingreso (solo Admisión) ---
-    elif opcion == "Registrar Paciente":
-        if st.session_state.user["rol"] != "admission":
-            st.error("❌ Solo Admisión puede registrar pacientes con nota de ingreso.")
-        else:
-            st.header("📝 Registrar Paciente y Nota de Ingreso")
-            placa = st.text_input("Placa SOAT (registrada previamente)").strip().upper()
-            if placa:
-                try:
-                    conn = get_db_connection()
-                    cur = conn.cursor()
-                    cur.execute("SELECT placa FROM soat_activos WHERE placa = %s AND estado = true", (placa,))
-                    existe = cur.fetchone()
-                    cur.close()
-                    conn.close()
-                    if existe:
-                        dni_paciente = st.text_input("DNI del paciente accidentado", max_chars=12).strip()
-                        nombres = st.text_input("Nombres y apellidos del paciente").strip()
-                        nota_ingreso = st.text_input("Número de nota de ingreso").strip()
-                        if st.button("Registrar Paciente"):
-                            if dni_paciente and nombres and nota_ingreso:
-                                if registrar_paciente_con_nota(dni_paciente, nombres, placa, nota_ingreso):
-                                    st.success("✅ Paciente registrado con nota de ingreso.")
-                            else:
-                                st.error("❌ Complete todos los campos.")
-                    else:
-                        st.error("❌ Placa SOAT no registrada o vencida.")
-                except Exception as e:
-                    st.error(f"❌ Error al verificar placa: {str(e)}")
-
-    # --- Hoja de Ruta ---
+    # --- Hoja de Ruta (se generará a partir del checklist y SOAT) ---
     elif opcion == "Hoja de Ruta":
         st.header("📋 Hoja de Ruta")
-        st.info("En desarrollo: lista de procedimientos autorizados para el paciente registrado.")
+        dni = st.text_input("DNI del paciente", max_chars=12).strip()
+        if dni:
+            paciente = buscar_paciente(dni)
+            if paciente:
+                checklist = obtener_checklist(dni)
+                if checklist and checklist["soat_adjuntado"]:
+                    st.success("✅ Hoja de ruta autorizada")
+                    st.markdown("""
+                    **Procedimientos autorizados:**
+                    - Evaluación médica inicial
+                    - Rayos X de tórax y extremidades
+                    - Laboratorio: hemograma, glucosa, coagulación
+                    - Medicación de emergencia (analgesia, antitetánica)
+                    - Observación por 6 horas
+                    """)
+                else:
+                    st.warning("⚠️ Hoja de ruta pendiente: complete el checklist y adjunte SOAT.")
+            else:
+                st.error("❌ Paciente no registrado.")
