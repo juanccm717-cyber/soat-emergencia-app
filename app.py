@@ -313,5 +313,5 @@ else:
                 st.error("❌ Paciente no registrado en Triaje.")
 
     # --- Otros roles (información genérica) ---
-        else:
-            st.info("🟢 Bienvenido. Tu área no tiene módulos específicos en esta versión.")
+    else:
+        st.info("🟢 Bienvenido. Tu área no tiene módulos específicos en esta versión.")
