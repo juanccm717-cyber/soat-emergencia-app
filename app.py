@@ -1,3 +1,5 @@
 # app.py
 import streamlit as st
-st.switch_page("login.py")
+
+# Redirige a la primera página (login.py)
+st.switch_page("pages/login.py")
