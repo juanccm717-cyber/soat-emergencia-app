@@ -212,7 +212,7 @@ elif st.session_state.ingresante is None:
     dni = st.text_input("DNI", max_chars=15).strip()
     if dni:
         data = buscar_ingresante(dni)
-        if 
+        if data:
             st.session_state.ingresante = {"dni": data[0], "nombre": data[1], "cargo": data[2]}
             st.rerun()
         else:
@@ -244,7 +244,7 @@ else:
         dni = st.text_input("DNI del paciente", max_chars=12).strip()
         if dni:
             data = buscar_paciente(dni)
-            if 
+            if data:
                 st.success(f"✅ Paciente ya registrado: **{data[1]}**")
             else:
                 nombre = st.text_input("Nombres y apellidos completos")
@@ -286,7 +286,7 @@ else:
         dni = st.text_input("DNI del paciente (registrado en Triaje)", max_chars=12).strip()
         if dni:
             paciente = buscar_paciente(dni)
-            if 
+            if paciente:
                 st.write(f"**Paciente:** {paciente[1]}")
                 placa = st.text_input("Placa SOAT (registrada)").strip().upper()
                 if placa:
@@ -313,5 +313,5 @@ else:
                 st.error("❌ Paciente no registrado en Triaje.")
 
     # --- Otros roles (información genérica) ---
-    else:
-        st.info("🟢 Bienvenido. Tu área no tiene módulos específicos en esta versión.")
+        else:
+            st.info("🟢 Bienvenido. Tu área no tiene módulos específicos en esta versión.")
