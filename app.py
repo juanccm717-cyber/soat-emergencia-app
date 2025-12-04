@@ -28,7 +28,7 @@ def get_db_connection():
         st.error(f"❌ Error al conectar con la base de datos: {str(e)}")
         st.stop()
 
-# --- Autenticación ---
+# --- Autenticación desde base de datos ---
 def autenticar_usuario(email, password):
     try:
         conn = get_db_connection()
@@ -44,7 +44,7 @@ def autenticar_usuario(email, password):
         st.error(f"❌ Error en autenticación: {str(e)}")
         return None
 
-# --- Registrar ingresante ---
+# --- Registrar ingresante (quien usa la app) ---
 def registrar_ingresante(dni, nombre, cargo):
     try:
         conn = get_db_connection()
@@ -62,7 +62,7 @@ def registrar_ingresante(dni, nombre, cargo):
         st.error(f"❌ Error al registrar ingresante: {str(e)}")
         return False
 
-# --- Buscar ingresante ---
+# --- Buscar ingresante por DNI ---
 def buscar_ingresante(dni):
     try:
         conn = get_db_connection()
@@ -140,7 +140,7 @@ def extraer_datos_soat(pdf_file):
         "numero_poliza": numero_poliza
     }
 
-# --- Guardar SOAT desde PDF (Admisión y Seguros) ---
+# --- Guardar SOAT desde PDF ---
 def guardar_soat_desde_pdf(placa, dni_asegurado, fecha_vigencia, compania, numero_poliza):
     try:
         conn = get_db_connection()
@@ -163,7 +163,7 @@ def guardar_soat_desde_pdf(placa, dni_asegurado, fecha_vigencia, compania, numer
         st.error(f"❌ Error al guardar SOAT: {str(e)}")
         return False
 
-# --- Vincular paciente con SOAT (solo Admisión) ---
+# --- Vincular paciente con SOAT y nota de ingreso ---
 def vincular_paciente_soat(dni_paciente, placa_soat, nota_ingreso):
     try:
         conn = get_db_connection()
@@ -177,10 +177,10 @@ def vincular_paciente_soat(dni_paciente, placa_soat, nota_ingreso):
         conn.close()
         return True
     except Exception as e:
-        st.error(f"❌ Error al vincular paciente con SOAT: {str(e)}")
+        st.error(f"❌ Error al vincular paciente: {str(e)}")
         return False
 
-# --- Roles ---
+# --- Nombres amigables de roles ---
 roles_nombres = {
     "admission": "Admisión",
     "seguros": "Seguros (Sub-Oficina)",
@@ -190,9 +190,10 @@ roles_nombres = {
     "triage": "Triaje de Emergencia"
 }
 
+# --- Configuración de la página ---
 st.set_page_config(page_title="SOAT Emergencia", layout="centered")
 
-# --- ETAPA 1: LOGIN ---
+# --- ETAPA 1: LOGIN INICIAL ---
 if st.session_state.user is None:
     st.title("🔐 Inicio de Sesión - SOAT Emergencia")
     email = st.text_input("Correo electrónico")
@@ -205,13 +206,31 @@ if st.session_state.user is None:
         else:
             st.error("❌ Usuario o contraseña incorrectos.")
 
-# --- ETAPA 2: MENÚ PRINCIPAL (solo después del login) ---
+# --- ETAPA 2: IDENTIFICACIÓN DEL INGRESANTE (quien usa la app) ---
+elif st.session_state.ingresante is None:
+    st.title("👤 Identificación del Personal Autorizado")
+    dni = st.text_input("DNI", max_chars=15).strip()
+    if dni:
+        data = buscar_ingresante(dni)
+        if 
+            st.session_state.ingresante = {"dni": data[0], "nombre": data[1], "cargo": data[2]}
+            st.rerun()
+        else:
+            nombre = st.text_input("Nombres y apellidos completos")
+            cargo = st.text_input("Cargo o rol en el hospital")
+            if st.button("Registrar como ingresante"):
+                if nombre.strip() and cargo.strip():
+                    if registrar_ingresante(dni, nombre, cargo):
+                        st.session_state.ingresante = {"dni": dni, "nombre": nombre, "cargo": cargo}
+                        st.success("✅ Registro exitoso")
+                        st.rerun()
+                else:
+                    st.error("❌ Complete todos los campos.")
+
+# --- ETAPA 3: MENÚ PRINCIPAL POR ROL ---
 else:
-    st.sidebar.title(f"🧍 {st.session_state.user['email']}")
+    st.sidebar.title(f"🧍 {st.session_state.ingresante['nombre']}")
     st.sidebar.write(f"**Área:** {roles_nombres[st.session_state.user['rol']]}")
-
-
-    # Botón de cierre de sesión
     if st.sidebar.button("Cerrar Sesión"):
         st.session_state.user = None
         st.session_state.ingresante = None
@@ -219,10 +238,7 @@ else:
 
     st.title("🏥 SOAT Emergencia - Menú Principal")
 
-    # Mostrar mensaje de bienvenida
-    st.subheader(f"Bienvenido, {st.session_state.user['email']}")
-
-    # --- Rol: Triaje ---
+    # --- Triaje: solo registra paciente ---
     if st.session_state.user["rol"] == "triage":
         st.header("📌 Registro de Paciente (Triaje)")
         dni = st.text_input("DNI del paciente", max_chars=12).strip()
@@ -233,20 +249,20 @@ else:
             else:
                 nombre = st.text_input("Nombres y apellidos completos")
                 if st.button("Registrar Paciente"):
-                    if nombre:
+                    if nombre.strip():
                         if registrar_paciente_triage(dni, nombre):
                             st.success(f"✅ Paciente registrado: **{nombre}**")
                     else:
                         st.error("❌ Ingrese nombres y apellidos.")
 
-    # --- Rol: Seguros ---
+    # --- Seguros: solo sube PDF SOAT ---
     elif st.session_state.user["rol"] == "seguros":
-        st.header("📄 Subir Certificado SOAT (Seguros)")
-        uploaded_file = st.file_uploader("Adjunte el PDF descargado", type=["pdf"])
+        st.header("📄 Subir Certificado SOAT")
+        uploaded_file = st.file_uploader("Adjunte el PDF del certificado", type=["pdf"])
         if uploaded_file:
             datos = extraer_datos_soat(uploaded_file)
             if all([datos["placa"], datos["fecha_vigencia"], datos["compania"], datos["numero_poliza"]]):
-                st.success("✅ Datos extraídos:")
+                st.success("✅ Datos extraídos del PDF:")
                 st.write(f"**Placa:** {datos['placa']}")
                 st.write(f"**Titular (DNI):** {datos['dni_asegurado']}")
                 st.write(f"**Compañía:** {datos['compania']}")
@@ -262,16 +278,17 @@ else:
                     ):
                         st.success(f"✅ SOAT registrado para placa {datos['placa']}")
             else:
-                st.error("❌ No se extrajeron todos los datos. Asegúrese de que el PDF sea válido.")
+                st.error("❌ No se extrajeron todos los datos. Use un PDF válido de SOAT.")
 
-    # --- Rol: Admisión ---
+    # --- Admisión: solo vincula SOAT con nota de ingreso ---
     elif st.session_state.user["rol"] == "admission":
-        st.header("🔗 Vincular SOAT al Paciente (Admisión)")
+        st.header("🔗 Vincular SOAT con Nota de Ingreso")
         dni = st.text_input("DNI del paciente (registrado en Triaje)", max_chars=12).strip()
         if dni:
             paciente = buscar_paciente(dni)
-            if paciente:
-                placa = st.text_input("Placa SOAT (registrada previamente)").strip().upper()
+            if 
+                st.write(f"**Paciente:** {paciente[1]}")
+                placa = st.text_input("Placa SOAT (registrada)").strip().upper()
                 if placa:
                     try:
                         conn = get_db_connection()
@@ -282,19 +299,19 @@ else:
                         conn.close()
                         if existe:
                             nota_ingreso = st.text_input("Número de nota de ingreso").strip()
-                            if st.button("Vincular SOAT"):
+                            if st.button("Vincular"):
                                 if nota_ingreso:
                                     if vincular_paciente_soat(dni, placa, nota_ingreso):
-                                        st.success("✅ Paciente vinculado con SOAT y nota de ingreso.")
+                                        st.success("✅ Vinculación exitosa")
                                 else:
-                                    st.error("❌ Complete todos los campos.")
+                                    st.error("❌ Ingrese el número de nota de ingreso.")
                         else:
                             st.error("❌ Placa SOAT no registrada o vencida.")
                     except Exception as e:
                         st.error(f"❌ Error al verificar placa: {str(e)}")
             else:
-                st.error("❌ Paciente no registrado.")
+                st.error("❌ Paciente no registrado en Triaje.")
 
-    # --- Otros roles (opcional) ---
+    # --- Otros roles (información genérica) ---
     else:
-        st.info("🟢 Bienvenido. Tu área no tiene módulos específicos asignados.")
+        st.info("🟢 Bienvenido. Tu área no tiene módulos específicos en esta versión.")
