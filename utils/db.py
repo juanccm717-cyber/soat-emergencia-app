@@ -1,4 +1,3 @@
-# utils/db.py
 import os
 import psycopg2
 import bcrypt
@@ -28,7 +27,7 @@ def autenticar_usuario(email, password):
         if row and bcrypt.checkpw(password.encode('utf-8'), row[1].encode('utf-8')):
             return {"email": row[0], "rol": row[2]}
         return None
-    except Exception as e:
+    except:
         return None
 
 def buscar_ingresante(dni):

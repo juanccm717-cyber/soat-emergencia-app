@@ -1,9 +1,8 @@
-# pages/3_Admission.py
 import streamlit as st
 from utils.db import buscar_paciente, verificar_soat, vincular_paciente_soat
 
 if "user" not in st.session_state or st.session_state.user is None or st.session_state.user["rol"] != "admission":
-    st.switch_page("login.py")
+    st.switch_page("pages/0_login.py")
 
 st.title("🔗 Vincular SOAT con Nota de Ingreso")
 dni = st.text_input("DNI del paciente (registrado en Triaje)", max_chars=12).strip()
