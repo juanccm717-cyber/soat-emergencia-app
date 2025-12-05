@@ -2,28 +2,29 @@ import streamlit as st
 import bcrypt
 from utils.db import get_user_by_email
 
-# Mapeo visible → archivo destino
+# ---------- 7 ÁREAS VÁLIDAS (igual a tabla usuarios) ----------
 AREA_PAGE = {
-    "Admin": "pages/3_Admission.py",
-    "SOAT": "pages/2_Seguros_SOAT.py",
-    "Seguros": "pages/2_Seguros_SOAT.py",
-    "Farmacia": "pages/4_Farmacia.py",
-    "Laboratorio": "pages/5_Laboratorio.py",
-    "Radiodiagnostico": "pages/6_Radiodiagnostico.py",
-    "Triaje": "pages/1_Triage.py",
+    "ADMINISTRADOR": "pages/3_Admission.py",   # acceso total
+    "TRIAJE": "pages/1_Triage.py",
+    "SEGUROS-SOAT": "pages/2_Seguros_SOAT.py",
+    "ADMISION": "pages/3_Admission.py",
+    "FARMACIA": "pages/4_Farmacia.py",
+    "LABORATORIO": "pages/5_Laboratorio.py",
+    "RADIO DIAGNOSTICO": "pages/6_Radiodiagnostico.py",
 }
 
-# Emails reales en Neon
+# Emails reales en Neon (1 × 1 con tabla usuarios)
 EMAIL_MAP = {
-    "Admin": "admin@hospital.com",
-    "SOAT": "soat@hospital.com",
-    "Seguros": "seguros@hospital.com",
-    "Farmacia": "farmacia@hospital.com",
-    "Laboratorio": "laboratorio@hospital.com",
-    "Radiodiagnostico": "radiodiag@hospital.com",
-    "Triaje": "triage@hospital.com",
+    "ADMINISTRADOR": "admin@hospital.com",
+    "TRIAJE": "triage@hospital.com",
+    "SEGUROS-SOAT": "seguros@hospital.com",
+    "ADMISION": "admission@hospital.com",
+    "FARMACIA": "farmacia@hospital.com",
+    "LABORATORIO": "laboratorio@hospital.com",
+    "RADIO DIAGNOSTICO": "radiodiag@hospital.com",
 }
 
+# ---------- INTERFAZ ----------
 st.title("SOATAPP – Inicio de Sesión")
 
 with st.form("login"):
@@ -31,19 +32,17 @@ with st.form("login"):
     password = st.text_input("Contraseña", type="password")
     enviar = st.form_submit_button("Iniciar Sesión")
 
+# ---------- VALIDACIÓN ----------
 if enviar:
     email = EMAIL_MAP[area]
     user = get_user_by_email(email)
-    if user:
-        hash_bd = user[1].encode()
-        if bcrypt.checkpw(password.encode(), hash_bd):
-            st.session_state.user = {"email": user[0], "rol": user[2]}
-            st.session_state.page = AREA_PAGE[area]
-            st.rerun()
-        else:
-            st.error("Credenciales incorrectas")
+    if user and bcrypt.checkpw(password.encode(), user[1].encode()):
+        st.session_state.user = {"email": user[0], "rol": user[2]}
+        st.session_state.page = AREA_PAGE[area]
+        st.rerun()
     else:
-        st.error("Usuario no encontrado en BD")
+        st.error("Credenciales incorrectas")
 
+# ---------- REDIRECCIÓN ----------
 if st.session_state.get("page"):
     st.switch_page(st.session_state.page)
