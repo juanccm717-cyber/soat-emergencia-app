@@ -1,8 +1,7 @@
 import streamlit as st
 import bcrypt
-from utils.db import get_user_by_email  # ← tu función real
+from utils.db import get_user_by_email
 
-# Mapeo área → archivo
 AREA_PAGE = {
     "Admisión": "pages/3_Admission.py",
     "Seguros (Sub-Oficina)": "pages/2_Seguros_SOAT.py",
@@ -20,16 +19,14 @@ with st.form("login"):
     enviar = st.form_submit_button("Iniciar Sesión")
 
 if enviar:
-    # 1. Obtener usuario de Neon (ejemplo con email hardcodeado por área)
     email = area.lower().replace(" ", "").replace("(", "").replace(")", "") + "@hospital.com"
-    user = get_user_by_email(email)  # ← debe devolver (email, hash, rol) o None
+    user = get_user_by_email(email)
     if user and bcrypt.checkpw(password.encode(), user[1].encode()):
         st.session_state.user = {"email": user[0], "rol": user[2]}
-        st.session_state.page = AREA_PAGE[area]  # destino
-        st.rerun()  # ← OBLIGATORIO
+        st.session_state.page = AREA_PAGE[area]
+        st.rerun()
     else:
         st.error("Credenciales incorrectas")
 
-# 2. Redirigir tras el rerun
 if st.session_state.get("page"):
     st.switch_page(st.session_state.page)
