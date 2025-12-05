@@ -5,9 +5,9 @@ from utils.db import buscar_ingresante, registrar_ingresante
 if "user" not in st.session_state or st.session_state.user is None:
     st.switch_page("login.py")
 
-# ---------- MAPA DE MÓDULOS ----------
+# ---------- MAPA OFICIAL (7 roles) ----------
 PAGES = {
-    "admin": [           # Administrador → todos
+    "admin": [           # ADMINISTRADOR → todos los módulos
         "pages/1_Triage.py",
         "pages/2_Seguros_SOAT.py",
         "pages/3_Admission.py",
@@ -50,11 +50,11 @@ else:
         cols = st.columns(3)
         mods = [
             ("📋 Triaje", "pages/1_Triage.py"),
-            ("🧾 Seguros SOAT", "pages/2_Seguros_SOAT.py"),
+            ("🧾 Seguros-SOAT", "pages/2_Seguros_SOAT.py"),
             ("🪪 Admission", "pages/3_Admission.py"),
             ("💊 Farmacia", "pages/4_Farmacia.py"),
             ("🧪 Laboratorio", "pages/5_Laboratorio.py"),
-            ("📷 Radiodiagnostico", "pages/6_Radiodiagnostico.py"),
+            ("📷 Radio Diagnóstico", "pages/6_Radiodiagnostico.py"),
         ]
         for col, (texto, pagina) in zip(cols * 2, mods):
             with col:
