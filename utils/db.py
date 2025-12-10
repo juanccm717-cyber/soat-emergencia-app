@@ -74,7 +74,6 @@ def verificar_soat(placa: str):
         print("verificar_soat error:", e)
     return None
 
-# ---------- VÍNCULO ----------
 def vincular_paciente_soat(dni: str, placa: str):
     """Crea registro en pacientes_soat. True/False."""
     try:
@@ -91,17 +90,80 @@ def vincular_paciente_soat(dni: str, placa: str):
     return False
 
 # ---------- FUNCIÓN PARA TRIAJE ----------
-def registrar_paciente_triage(dni: str, nombre: str):
-    """Inserta paciente desde módulo Triaje. Devuelve True/False."""
+def registrar_paciente_triage(dni: str, apellidos: str, nombres: str, prioridad: str, dni_profesional: str):
+    """Registra paciente con prioridad y profesional que atendió."""
     try:
         with get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "INSERT INTO pacientes (dni, nombres, apellidos) VALUES (%s, %s, %s)",
-                    (dni, nombre, "")  # apellidos vacío por ahora
+                    """INSERT INTO pacientes (dni, apellidos, nombres, prioridad, fecha_hora, dni_profesional)
+                       VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP, %s)""",
+                    (dni, apellidos, nombres, prioridad, dni_profesional)
                 )
                 conn.commit()
                 return True
     except Exception as e:
         print("registrar_paciente_triage error:", e)
+    return False
+
+# ---------- LISTA DE ESPERA (sobre tu tabla existente) ----------
+def insertar_lista_espera_triaje(dni_paciente: str, prioridad: str, dni_profesional: str):
+    """Inserta paciente en lista de espera SIN tocar estructura."""
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                checklist = {
+                    "prioridad": prioridad,
+                    "procedencia": "triaje"
+                }
+                cur.execute(
+                    """INSERT INTO lista_espera (dni_paciente, checklist, estado, dni_confirmado)
+                       VALUES (%s, %s, 'pendiente', %s)""",
+                    (dni_paciente, checklist, dni_profesional)
+                )
+                conn.commit()
+                return True
+    except Exception as e:
+        print("insertar_lista_espera_triaje error:", e)
+    return False
+
+def obtener_lista_espera_pendiente():
+    """Devuelve pacientes en espera ordenados por prioridad (desde jsonb)."""
+    try:
+        with get_conn() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT le.id, le.dni_paciente, le.created_at,
+                           le.checklist->>'prioridad' AS prioridad,
+                           le.dni_confirmado AS dni_profesional
+                    FROM lista_espera le
+                    WHERE le.estado = 'pendiente'
+                    ORDER BY 
+                        CASE le.checklist->>'prioridad'
+                            WHEN 'Crítica' THEN 1
+                            WHEN 'Urgente' THEN 2
+                            WHEN 'Moderada' THEN 3
+                            WHEN 'Leve' THEN 4
+                            ELSE 5
+                        END,
+                        le.created_at ASC
+                """)
+                return cur.fetchall()
+    except Exception as e:
+        print("obtener_lista_espera_pendiente error:", e)
+    return []
+
+def actualizar_estado_lista(uuid_id: str, estado: str):
+    """Cambia estado de la fila (pendiente / atendido / rechazado)."""
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE lista_espera SET estado = %s WHERE id = %s::uuid",
+                    (estado, uuid_id)
+                )
+                conn.commit()
+                return True
+    except Exception as e:
+        print("actualizar_estado_lista error:", e)
     return False
