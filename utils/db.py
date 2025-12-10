@@ -89,3 +89,19 @@ def vincular_paciente_soat(dni: str, placa: str):
     except Exception as e:
         print("vincular_paciente_soat error:", e)
     return False
+
+# ---------- FUNCIÓN PARA TRIAJE ----------
+def registrar_paciente_triage(dni: str, nombre: str):
+    """Inserta paciente desde módulo Triaje. Devuelve True/False."""
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO pacientes (dni, nombres, apellidos) VALUES (%s, %s, %s)",
+                    (dni, nombre, "")  # apellidos vacío por ahora
+                )
+                conn.commit()
+                return True
+    except Exception as e:
+        print("registrar_paciente_triage error:", e)
+    return False
