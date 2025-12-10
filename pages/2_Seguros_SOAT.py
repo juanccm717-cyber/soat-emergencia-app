@@ -1,28 +1,49 @@
 import streamlit as st
-from utils.db import extraer_datos_soat, guardar_soat_desde_pdf
+from utils.db import verificar_soat, obtener_lista_espera_pendiente, actualizar_estado_lista, vincular_paciente_soat
 
-if "user" not in st.session_state or st.session_state.user is None or st.session_state.user["rol"] != "seguros":
+# ---------- SEGURIDAD ----------
+if "user" not in st.session_state or st.session_state.user is None or st.session_state.user["rol"] != "SEGUROS-SOAT":
     st.switch_page("pages/0_login.py")
 
-st.title("📄 Subir Certificado SOAT")
-uploaded_file = st.file_uploader("Adjunte el PDF del certificado", type=["pdf"])
-if uploaded_file:
-    datos = extraer_datos_soat(uploaded_file)
-    if all([datos["placa"], datos["fecha_vigencia"], datos["compania"], datos["numero_poliza"]]):
-        st.success("✅ Datos extraídos del PDF")
-        st.write(f"**Placa:** {datos['placa']}")
-        st.write(f"**Titular:** {datos['dni_asegurado']}")
-        st.write(f"**Compañía:** {datos['compania']}")
-        st.write(f"**Póliza:** {datos['numero_poliza']}")
-        st.write(f"**Vigente hasta:** {datos['fecha_vigencia']}")
-        if st.button("Registrar SOAT"):
-            if guardar_soat_desde_pdf(
-                datos["placa"],
-                datos["dni_asegurado"],
-                datos["fecha_vigencia"],
-                datos["compania"],
-                datos["numero_poliza"]
-            ):
-                st.success(f"✅ SOAT registrado para placa {datos['placa']}")
+st.title("🧾 Módulo Seguros-SOAT")
+st.markdown("Valide el SOAT del vehículo y atienda pacientes en espera.")
+
+# ---------- LISTA DE ESPERA ----------
+pendientes = obtener_lista_espera_pendiente()
+if pendientes:
+    st.subheader("📋 Pacientes en espera de validación de SOAT")
+    for p in pendientes:
+        col1, col2, col3 = st.columns([1, 3, 2])
+        with col1:
+            if st.button("✅ Atender", key=p["id"]):
+                actualizar_estado_lista(p["id"], "atendido")
+                st.rerun()
+        with col2:
+            st.write(f"{p['dni_paciente']} | Prioridad: {p['prioridad']}")
+        with col3:
+            st.write(f"Hora: {p['created_at']}")
+else:
+    st.info("No hay pacientes en espera.")
+
+# ---------- VALIDACIÓN DE SOAT ----------
+st.subheader("Validar SOAT")
+with st.form("valida_soat"):
+    dni_paciente = st.text_input("DNI del paciente").strip()
+    placa = st.text_input("Placa del vehículo").upper()
+    validar = st.form_submit_button("Validar SOAT")
+
+if validar:
+    if not (dni_paciente and placa):
+        st.error("Complete ambos campos")
     else:
-        st.error("❌ No se extrajeron todos los datos del PDF.")
+        soat = verificar_soat(placa)
+        if soat:
+            st.success("✅ SOAT vigente encontrado.")
+            vincular_paciente_soat(dni_paciente, placa)
+            st.info("Paciente vinculado al SOAT correctamente.")
+        else:
+            st.error("❌ No se encontró SOAT vigente para esa placa.")
+
+# ---------- BOTÓN VOLVER ----------
+if st.button("⬅ Volver al menú"):
+    st.switch_page("menu.py")
