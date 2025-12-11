@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.db import buscar_paciente, registrar_paciente, insertar_lista_espera_triaje
+from utils.db import buscar_paciente, insertar_paciente_triaje, insertar_lista_espera_triaje
 
 # ---------- SEGURIDAD (admin + triaje) ----------
 if "user" not in st.session_state or st.session_state.user is None:
@@ -11,7 +11,7 @@ if st.session_state.user["rol"] not in ["admin", "triage"]:
         st.rerun()
     st.stop()
 
-st.title("📋 Módulo Triaje")
+st.title("📋 Módulo Triaje – Ruta de Atención")
 st.markdown("Registre al paciente con prioridad y añádalo a lista de espera.")
 
 with st.form("triaje"):
@@ -30,10 +30,14 @@ if enviar:
         if existe:
             st.warning("⚠️ Paciente ya registrado.")
         else:
-            ok = registrar_paciente(dni_paciente, apellidos, nombres)
+            ok = insertar_paciente_triaje(dni_paciente, apellidos, nombres, prioridad, dni_profesional)
             if ok:
-                st.success(f"✅ Paciente registrado con prioridad **{prioridad}**.")
-                st.info("➡️ Ahora puede ser atendido por Seguros-SOAT o Admisión.")
+                lista_ok = insertar_lista_espera_triaje(dni_paciente, prioridad, dni_profesional)
+                if lista_ok:
+                    st.success(f"✅ Paciente registrado con prioridad **{prioridad}** y **añadido a lista de espera**.")
+                    st.info("➡️ Ahora puede ser atendido por **Seguros-SOAT** o **Admisión**.")
+                else:
+                    st.error("❌ Error al añadir a lista de espera.")
             else:
                 st.error("❌ Error al registrar paciente.")
 
