@@ -77,3 +77,37 @@ def vincular_paciente_soat(dni: str, placa: str):
     except Exception as e:
         print("vincular_paciente_soat:", e)
     return False
+
+# ---------- TRIAJE + LISTA DE ESPERA ----------
+def insertar_paciente_triaje(dni: str, apellidos: str, nombres: str, prioridad: str, dni_profesional: str):
+    """Registra paciente con prioridad y profesional que atendió."""
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """INSERT INTO pacientes (dni, apellidos, nombres, prioridad, fecha_hora, dni_profesional)
+                       VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP, %s)""",
+                    (dni, apellidos, nombres, prioridad, dni_profesional)
+                )
+                conn.commit()
+                return True
+    except Exception as e:
+        print("insertar_paciente_triaje:", e)
+    return False
+
+def insertar_lista_espera_triaje(dni_paciente: str, prioridad: str, dni_profesional: str):
+    """Inserta paciente en lista de espera usando tabla existente (jsonb + uuid)."""
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                checklist = {"prioridad": prioridad, "procedencia": "triaje"}
+                cur.execute(
+                    """INSERT INTO lista_espera (dni_paciente, checklist, estado, dni_confirmado)
+                       VALUES (%s, %s, 'pendiente', %s)""",
+                    (dni_paciente, checklist, dni_profesional)
+                )
+                conn.commit()
+                return True
+    except Exception as e:
+        print("insertar_lista_espera_triaje:", e)
+    return False
