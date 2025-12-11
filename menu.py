@@ -3,19 +3,19 @@ from utils.db import buscar_ingresante, registrar_ingresante
 
 # ---------- SEGURIDAD ----------
 if "user" not in st.session_state or st.session_state.user is None:
-    st.switch_page("login.py")
+    st.switch_page("pages/0_login.py")
 
 # ---------- MAPA OFICIAL (7 roles) ----------
 PAGES = {
     "admin": [           # ADMINISTRADOR → todos los módulos
-        "pages/1_Triage.py",
+        "pages/1_Triaje.py",
         "pages/2_Seguros_SOAT.py",
         "pages/3_Admission.py",
         "pages/4_Farmacia.py",
         "pages/5_Laboratorio.py",
         "pages/6_Radiodiagnostico.py",
     ],
-    "triage":    ["pages/1_Triage.py"],
+    "triage":    ["pages/1_Triaje.py"],
     "seguros":   ["pages/2_Seguros_SOAT.py"],
     "admission": ["pages/3_Admission.py"],
     "farmacia":  ["pages/4_Farmacia.py"],
@@ -49,7 +49,7 @@ else:
         st.success("🔓 Modo Administrador – acceso total")
         cols = st.columns(3)
         mods = [
-            ("📋 Triaje", "pages/1_Triage.py"),
+            ("📋 Triaje", "pages/1_Triaje.py"),
             ("🧾 Seguros-SOAT", "pages/2_Seguros_SOAT.py"),
             ("🪪 Admission", "pages/3_Admission.py"),
             ("💊 Farmacia", "pages/4_Farmacia.py"),
@@ -64,7 +64,7 @@ else:
     else:
         # Usuario normal → una sola página
         destino = {
-            "triage": "pages/1_Triage.py",
+            "triage": "pages/1_Triaje.py",
             "seguros": "pages/2_Seguros_SOAT.py",
             "admission": "pages/3_Admission.py",
             "farmacia": "pages/4_Farmacia.py",
@@ -79,6 +79,6 @@ else:
                 st.session_state.clear()
                 st.rerun()
 
-# ---------- NAVEGACIÓN EXTRA (opcional) ----------
-if st.session_state.get("page"):
+# ---------- NAVEGACIÓN OFICIAL ----------
+if "page" in st.session_state:
     st.switch_page(st.session_state.page)
