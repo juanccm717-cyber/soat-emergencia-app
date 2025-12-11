@@ -5,7 +5,7 @@ from utils.db import get_user_by_email
 # ---------- 7 ÁREAS VÁLIDAS (igual a tabla usuarios) ----------
 AREA_PAGE = {
     "ADMINISTRADOR": "pages/3_Admission.py",   # acceso total
-    "TRIAJE": "pages/1_Triage.py",
+    "TRIAJE": "pages/1_Triaje.py",
     "SEGUROS-SOAT": "pages/2_Seguros_SOAT.py",
     "ADMISION": "pages/3_Admission.py",
     "FARMACIA": "pages/4_Farmacia.py",
@@ -43,6 +43,6 @@ if enviar:
     else:
         st.error("Credenciales incorrectas")
 
-# ---------- REDIRECCIÓN ----------
-if st.session_state.get("page"):
+# ---------- NAVEGACIÓN OFICIAL ----------
+if "page" in st.session_state:
     st.switch_page(st.session_state.page)
