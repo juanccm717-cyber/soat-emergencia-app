@@ -2,9 +2,8 @@ import streamlit as st
 import bcrypt
 from utils.db import get_user_by_email
 
-# ---------- 7 ÁREAS VÁLIDAS (igual a tabla usuarios) ----------
 AREA_PAGE = {
-    "ADMINISTRADOR": "pages/7_Dashboard.py",   # acceso total
+    "ADMINISTRADOR": "pages/7_Dashboard.py",
     "TRIAJE": "pages/1_Triaje.py",
     "SEGUROS-SOAT": "pages/2_Seguros_SOAT.py",
     "ADMISION": "pages/3_Admission.py",
@@ -13,7 +12,6 @@ AREA_PAGE = {
     "RADIO DIAGNOSTICO": "pages/6_Radiodiagnostico.py",
 }
 
-# Emails reales en Neon (1 × 1 con tabla usuarios)
 EMAIL_MAP = {
     "ADMINISTRADOR": "admin@hospital.com",
     "TRIAJE": "triage@hospital.com",
@@ -24,7 +22,7 @@ EMAIL_MAP = {
     "RADIO DIAGNOSTICO": "radiodiag@hospital.com",
 }
 
-st.title("SOATAPP – Inicio de Sesión")
+st.title("SOAT-Emergencia-App – Inicio de Sesión")
 st.markdown("Ingrese su área y contraseña para continuar.")
 
 with st.form("login"):
