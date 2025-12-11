@@ -49,4 +49,5 @@ if registrar:
 
 # ---------- BOTÓN VOLVER ----------
 if st.button("⬅ Volver al menú"):
-    st.switch_page("menu.py")
+    st.session_state.page = "menu.py"
+    st.rerun()
