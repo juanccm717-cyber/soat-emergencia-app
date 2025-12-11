@@ -47,6 +47,7 @@ else:
 
     if rol == "admin":
         st.success("🔓 Modo Administrador – acceso total")
+        st.write("ROL:", rol, "| PAGES:", PAGES["admin"])
         cols = st.columns(3)
         mods = [
             ("📋 Triaje", "pages/1_Triaje.py"),
@@ -58,8 +59,9 @@ else:
         ]
         for col, (texto, pagina) in zip(cols * 2, mods):
             with col:
-                if st.button(texto):
+                if st.button(texto, key=texto):
                     st.session_state.page = pagina
+                    st.success(f"🔜 Navegando a {pagina}")
                     st.rerun()
     else:
         # Usuario normal → una sola página
