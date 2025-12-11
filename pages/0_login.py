@@ -2,8 +2,9 @@ import streamlit as st
 import bcrypt
 from utils.db import get_user_by_email
 
+# ---------- 7 ÁREAS VÁLIDAS (igual a tabla usuarios) ----------
 AREA_PAGE = {
-    "ADMINISTRADOR": "pages/7_Dashboard.py",
+    "ADMINISTRADOR": "pages/7_Dashboard.py",   # acceso total
     "TRIAJE": "pages/1_Triaje.py",
     "SEGUROS-SOAT": "pages/2_Seguros_SOAT.py",
     "ADMISION": "pages/3_Admission.py",
@@ -12,6 +13,7 @@ AREA_PAGE = {
     "RADIO DIAGNOSTICO": "pages/6_Radiodiagnostico.py",
 }
 
+# Emails reales en Neon (1 × 1 con tabla usuarios)
 EMAIL_MAP = {
     "ADMINISTRADOR": "admin@hospital.com",
     "TRIAJE": "triage@hospital.com",
@@ -23,6 +25,8 @@ EMAIL_MAP = {
 }
 
 st.title("SOATAPP – Inicio de Sesión")
+st.markdown("Ingrese su área y contraseña para continuar.")
+
 with st.form("login"):
     area = st.selectbox("Seleccione su área de trabajo", list(AREA_PAGE.keys()))
     password = st.text_input("Contraseña", type="password")
@@ -36,7 +40,7 @@ if enviar:
         st.session_state.page = AREA_PAGE[area]
         st.rerun()
     else:
-        st.error("Credenciales incorrectas")
+        st.error("❌ Credenciales incorrectas")
 
 if "page" in st.session_state:
     st.switch_page(st.session_state.page)
