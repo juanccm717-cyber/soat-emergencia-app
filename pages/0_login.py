@@ -1,11 +1,9 @@
 import streamlit as st
 import bcrypt
 from utils.db import get_user_by_email
-import os
 
-# ---------- 7 ÁREAS VÁLIDAS (igual a tabla usuarios) ----------
 AREA_PAGE = {
-    "ADMINISTRADOR": "pages/1_Triaje.py",   # acceso total
+    "ADMINISTRADOR": "pages/7_Dashboard.py",
     "TRIAJE": "pages/1_Triaje.py",
     "SEGUROS-SOAT": "pages/2_Seguros_SOAT.py",
     "ADMISION": "pages/3_Admission.py",
@@ -14,7 +12,6 @@ AREA_PAGE = {
     "RADIO DIAGNOSTICO": "pages/6_Radiodiagnostico.py",
 }
 
-# Emails reales en Neon (1 × 1 con tabla usuarios)
 EMAIL_MAP = {
     "ADMINISTRADOR": "admin@hospital.com",
     "TRIAJE": "triage@hospital.com",
@@ -26,7 +23,6 @@ EMAIL_MAP = {
 }
 
 st.title("SOATAPP – Inicio de Sesión")
-
 with st.form("login"):
     area = st.selectbox("Seleccione su área de trabajo", list(AREA_PAGE.keys()))
     password = st.text_input("Contraseña", type="password")
@@ -42,16 +38,5 @@ if enviar:
     else:
         st.error("Credenciales incorrectas")
 
-# ---------- NAVEGACIÓN CON VERIFICACIÓN ----------
 if "page" in st.session_state:
-    pagina = st.session_state.page
-    # ---- verifica existencia ----
-    ruta_abs = os.path.join("pages", pagina.replace("pages/", ""))
-    if os.path.isfile(ruta_abs):
-        st.success(f"✅ Navegando a: {pagina}")
-        st.switch_page(pagina)
-    else:
-        st.error(f"❌ Archivo NO encontrado: {ruta_abs}")
-        st.info("Volviendo al menú principal")
-        st.session_state.page = "menu.py"
-        st.rerun()
+    st.switch_page(st.session_state.page)
